@@ -1,4 +1,5 @@
 version 3.7 (milestone)
+* composite: skip adding separator for empty items, by @lasers
 
 version 3.6 (2017-08-22)
 * faster py3-cmd, by @tobes
