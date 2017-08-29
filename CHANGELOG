@@ -1,6 +1,7 @@
 version 3.7 (milestone)
 * remove Timers and spend less time in threading, by @tobes
 * composite: skip adding separator for empty items, by @lasers
+* group module: fix an exception, an indentation, by @lasers
 
 version 3.6 (2017-08-22)
 * faster py3-cmd, by @tobes
