@@ -3,6 +3,8 @@ version 3.7 (milestone)
 * composite: skip adding separator for empty items, by @lasers
 * group module: fix an exception, an indentation, by @lasers
 * cleanups to i3status including reducing workload, by @tobes
+* xrandr module: use py3.update, by @lasers
+* xrandr module: use post_config_hook, by @lasers
 
 version 3.6 (2017-08-22)
 * faster py3-cmd, by @tobes
