@@ -386,7 +386,10 @@ class Module:
                 raise KeyError('missing "full_text" key in response')
             # make sure all components have a name
             if 'name' not in item:
-                instance_index = item.get('index', index)
+                if 'index' in item:
+                    instance_index = 'str:{}'.format(item['index'])
+                else:
+                    instance_index = 'int:{}'.format(index)
                 item['instance'] = '{} {}'.format(
                     self.module_inst, instance_index
                 )

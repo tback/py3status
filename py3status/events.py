@@ -217,10 +217,10 @@ class Events(Thread):
         # is an integer type then cast it as such.
         if ' ' in instance:
             instance, index = instance.split(' ', 1)
-            try:
-                index = int(index)
-            except ValueError:
-                pass
+            if 'int:' in index:
+                index = int(index[4:])
+            elif 'str:' in index:
+                index = index[4:]
             event['index'] = index
             event['instance'] = instance
 
