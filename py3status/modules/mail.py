@@ -63,7 +63,9 @@ mail {                                       #
                 'user': 'lasers',            #      │    │
                 'password': 'kiss_my_butt!', #      │    │
                 'server': 'imap.gmail.com',  #      │    │ 
-                'port': 993,                 #      │    │
+                                             #  <---│----│ no filters to
+                'port': 993,                 #      │    │ fnmatch folders,
+                                             #      │    │ use ['INBOX']
             },                               #      │    │
             {                                #      │    └── {imap_2}
                 'name': 'work',              # <----│---------└── {work}
@@ -72,6 +74,9 @@ mail {                                       #
                 'server': 'imap.yahoo.com',  #
                                              # <---- no port, use port 993
                 'urgent': False,             # <---- disable urgent
+                                             #       for this account
+                'filters': ['INBOX']         # <---- specify a list of filters
+                                             #       to fnmatch folders
             }                                #
         ]
     }
@@ -135,12 +140,15 @@ no_mail
 """
 
 import mailbox
+from csv import reader
+from fnmatch import fnmatch
 from imaplib import IMAP4_SSL
 from os.path import exists, expanduser, expandvars
 
 STRING_MISSING = 'missing {} {}'
 STRING_INVALID_NAME = 'invalid name `{}`'
 STRING_INVALID_BOX = 'invalid mailbox `{}`'
+STRING_INVALID_FILTER = 'invalid imap filters `{}`'
 
 
 class Py3status:
@@ -156,6 +164,7 @@ class Py3status:
         if not self.accounts:
             raise Exception('missing accounts')
 
+        self.first_run = True
         self.mailboxes = {}
         mailboxes = ['Maildir', 'mbox', 'mh', 'Babyl', 'MMDF', 'IMAP']
         lowercased_names = [x.lower() for x in mailboxes]
@@ -177,6 +186,15 @@ class Py3status:
                         if v not in account:
                             raise Exception(STRING_MISSING.format(mail, v))
                     account.setdefault('port', 993)
+                    if 'filters' in account:
+                        filters = account['filters']
+                        if not isinstance(filters, list):
+                            raise Exception(
+                                STRING_INVALID_FILTER.format(filters)
+                            )
+                    else:
+                        account['filters'] = ['INBOX']
+                    account['folders'] = []
                     self.mailboxes[mail].append(account)
                 else:
                     for box in mailboxes[:-1]:
@@ -206,9 +224,32 @@ class Py3status:
                 if k == 'imap':
                     inbox = IMAP4_SSL(account['server'], account['port'])
                     inbox.login(account['user'], account['password'])
-                    inbox.select(readonly=True)
-                    imap_data = inbox.search(None, '(UNSEEN)')
-                    count_mail = len(imap_data[1][0].split())
+
+                    if self.first_run:
+                        filters = account['filters']
+                        folders = [x[-1] for x in reader(
+                            map(bytes.decode, inbox.list()[1]), delimiter=" "
+                        )]
+                        for folder in folders:
+                            for _filter in filters:
+                                if fnmatch(folder, _filter):
+                                    folder = folder.replace('\\', '\\\\')
+                                    folder = folder.replace('"', '\\"')
+                                    folder = '"{}"'.format(folder)
+                                    if folder not in account['folders']:
+                                        account['folders'].append(folder)
+                        if not account['folders']:
+                            self.py3.error(
+                                STRING_INVALID_FILTER.format(filters)
+                            )
+                        account.pop('filters')
+
+                    count_mail = 0
+                    for folder in account['folders']:
+                        if inbox.select(folder, readonly=True)[0] == 'OK':
+                            imap_data = inbox.search(None, '(UNSEEN)')
+                            count_mail += len(imap_data[1][0].split())
+
                     inbox.close()
                     inbox.logout()
                 else:
@@ -227,6 +268,8 @@ class Py3status:
         for x in self.thresholds_init:
             if x in mail_data:
                 self.py3.threshold_get_color(mail_data[x], x)
+
+        self.first_run = False
 
         response = {
             'cached_until': self.py3.time_in(self.cache_timeout),
